@@ -21,29 +21,29 @@ A FastAPI-based service that scrapes company data from OpenCorporates using the 
 ## Installation
 
 1. Clone the repository:
-
+```bash
 git clone https://github.com/your-username/open_corporates.git
 cd open_corporates
-
+```
 
 2. Create a `.env` file in the root directory:
 
-ZYTE_API_KEY="your_zyte_api_key"
+    - ZYTE_API_KEY="your_zyte_api_key"
 
 
 3. Install dependencies:
-
+```bash
 pip install -r requirements.txt
-
+```
 
 ## Usage
 
 ### Running Locally
 
 Start the FastAPI server:
-
+```bash
 python main.py
-
+```
 
 The API will be available at `http://localhost:8000`
 
@@ -51,12 +51,13 @@ The API will be available at `http://localhost:8000`
 
 Build and run using Make commands:
 
-make build    # Build Docker image
-make run      # Run container
-make dbuild   # Build and run
-make stop     # Stop container
-make clean    # Clean Docker system
-
+| Command | Description |
+|----------|-------------|
+| make build | Build Docker image |
+| make run | Run container |
+| make dbuild | Build and run |
+| make stop | Stop container |
+| make clean | Clean Docker system |
 
 ## API Endpoints
 
