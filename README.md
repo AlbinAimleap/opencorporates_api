@@ -115,6 +115,7 @@ make clean    # Clean Docker system
 
 ## Project Structure
 
+```
 
 ├── opencorporates_api/
 │   ├── __init__.py
@@ -126,7 +127,7 @@ make clean    # Clean Docker system
 ├── Makefile           # Build automation
 ├── main.py            # Application entry point
 └── requirements.txt   # Python dependencies
-
+```
 
 ## Dependencies
 
