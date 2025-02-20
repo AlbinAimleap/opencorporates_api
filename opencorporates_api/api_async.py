@@ -38,21 +38,22 @@ class ApiResponse(BaseModel):
     data: Optional[dict] = None
 
 @app.get("/search/stream")
-async def get_companies_stream(query: str, jurisdiction: Optional[str] = None):
+async def get_companies_stream(query: str, jurisdiction: Optional[str] = None, use_cache: bool = True):
     session = SessionLocal()
-    existing_task = session.query(Task).filter(
-        Task.query == query,
-        Task.jurisdiction == jurisdiction,
-        Task.status == "completed"
-    ).first()
-    
-    if existing_task and existing_task.output:
-        async def cached_streamer():
-            companies = json.loads(existing_task.output)
-            for company in companies:
-                yield json.dumps({"success": True, "message": "Data retrieved from cache", "data": company}) + "\n"
-        session.close()
-        return StreamingResponse(cached_streamer(), media_type="application/x-ndjson")
+    if use_cache:
+        existing_task = session.query(Task).filter(
+            Task.query == query,
+            Task.jurisdiction == jurisdiction,
+            Task.status == "completed"
+        ).first()
+        
+        if existing_task and existing_task.output:
+            async def cached_streamer():
+                companies = json.loads(existing_task.output)
+                for company in companies:
+                    yield json.dumps({"success": True, "message": "Data retrieved from cache", "data": company}) + "\n"
+            session.close()
+            return StreamingResponse(cached_streamer(), media_type="application/x-ndjson")
     
     async def streamer():
         async for companies in search(query, jurisdiction):
@@ -62,31 +63,33 @@ async def get_companies_stream(query: str, jurisdiction: Optional[str] = None):
     return StreamingResponse(streamer(), media_type="application/x-ndjson")
 
 @app.get("/search", response_model=ApiResponse)
-async def get_companies(query: str, jurisdiction: Optional[str] = None):
+async def get_companies(query: str, jurisdiction: Optional[str] = None, use_cache: bool = True):
     session = SessionLocal()
-    existing_task = session.query(Task).filter(
-        Task.query == query,
-        Task.jurisdiction == jurisdiction,
-        Task.status == "completed"
-    ).first()
-    
-    if existing_task and existing_task.output:
-        result = json.loads(existing_task.output)
-        session.close()
-        return ApiResponse(success=True, message="Data retrieved from cache", data={"companies": result})
+    if use_cache:
+        existing_task = session.query(Task).filter(
+            Task.query == query,
+            Task.jurisdiction == jurisdiction,
+            Task.status == "completed"
+        ).first()
+        
+        if existing_task and existing_task.output:
+            result = json.loads(existing_task.output)
+            session.close()
+            return ApiResponse(success=True, message="Data retrieved from cache", data={"companies": result})
     
     result = await collect_results(query, jurisdiction)
     
-    # Save the results to database
-    task = Task(
-        id=str(uuid.uuid4()),
-        status="completed",
-        query=query,
-        jurisdiction=jurisdiction,
-        output=json.dumps(result)
-    )
-    session.add(task)
-    session.commit()
+    if use_cache:
+        # Save the results to database
+        task = Task(
+            id=str(uuid.uuid4()),
+            status="completed",
+            query=query,
+            jurisdiction=jurisdiction,
+            output=json.dumps(result)
+        )
+        session.add(task)
+        session.commit()
     session.close()
     
     return ApiResponse(success=True, message="Data retrieved successfully", data={"companies": result})
@@ -112,20 +115,21 @@ async def collect_results(query: str, jurisdiction: Optional[str] = None):
     return results
 
 @app.get("/queue", response_model=ApiResponse)
-async def queue_scraping(query: str, jurisdiction: Optional[str] = None, background_tasks: BackgroundTasks = None):
+async def queue_scraping(query: str, jurisdiction: Optional[str] = None, background_tasks: BackgroundTasks = None, use_cache: bool = True):
     session = SessionLocal()
     
-    # Check if we already have results for this query
-    existing_task = session.query(Task).filter(
-        Task.query == query,
-        Task.jurisdiction == jurisdiction,
-        Task.status == "completed"
-    ).first()
-    
-    if existing_task and existing_task.output:
-        result = json.loads(existing_task.output)
-        session.close()
-        return ApiResponse(success=True, message="Data retrieved from cache", data={"companies": result})
+    if use_cache:
+        # Check if we already have results for this query
+        existing_task = session.query(Task).filter(
+            Task.query == query,
+            Task.jurisdiction == jurisdiction,
+            Task.status == "completed"
+        ).first()
+        
+        if existing_task and existing_task.output:
+            result = json.loads(existing_task.output)
+            session.close()
+            return ApiResponse(success=True, message="Data retrieved from cache", data={"companies": result})
     
     task_id = str(uuid.uuid4())
     task = Task(id=task_id, status="queued", query=query, jurisdiction=jurisdiction)
