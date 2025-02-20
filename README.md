@@ -88,7 +88,7 @@ make clean    # Clean Docker system
 
 ## Response Format
 
-
+```json
 {
   "success": boolean,
   "message": string,
@@ -111,7 +111,7 @@ make clean    # Clean Docker system
     ]
   }
 }
-
+```
 
 ## Project Structure
 
