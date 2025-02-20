@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+aiohttp
+bs4
+pydantic
+sqlalchemy
+python-dotenv
