@@ -1,14 +1,20 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Depends, HTTPException, Security
 from fastapi.responses import StreamingResponse
+from fastapi.security.api_key import APIKeyHeader, APIKey
 from pydantic import BaseModel
 from typing import Optional
 import uuid
 import json
+import secrets
 
 from opencorporates_api.opencorporates import search
-from opencorporates_api.tasks import SessionLocal, Task
+from opencorporates_api.tasks import SessionLocal, Task, Base, User
+
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
 
 app = FastAPI()
+
 
 class Company(BaseModel):
     company_link: Optional[str] = None
@@ -37,8 +43,43 @@ class ApiResponse(BaseModel):
     message: str
     data: Optional[dict] = None
 
+class UserCreate(BaseModel):
+    username: str
+
+async def get_api_key(api_key_header: str = Security(api_key_header)):
+    session = SessionLocal()
+    user = session.query(User).filter(User.api_key == api_key_header).first()
+    session.close()
+    if not user:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+    return api_key_header
+
+@app.post("/register-obfuscated-pathparameter-internal-use-only", response_model=ApiResponse)
+async def register_user(user: UserCreate):
+    session = SessionLocal()
+    existing_user = session.query(User).filter(User.username == user.username).first()
+    if existing_user:
+        session.close()
+        raise HTTPException(status_code=400, detail="Username already registered")
+    
+    api_key = secrets.token_urlsafe(32)
+    new_user = User(
+        id=str(secrets.token_hex(16)),
+        username=user.username,
+        api_key=api_key
+    )
+    session.add(new_user)
+    session.commit()
+    session.close()
+    return ApiResponse(success=True, message="User registered successfully", data={"api_key": api_key})
+
 @app.get("/search/stream")
-async def get_companies_stream(query: str, jurisdiction: Optional[str] = None, use_cache: bool = True):
+async def get_companies_stream(
+    query: str,
+    jurisdiction: Optional[str] = None,
+    use_cache: bool = True,
+    api_key: APIKey = Depends(get_api_key)
+):
     session = SessionLocal()
     if use_cache:
         existing_task = session.query(Task).filter(
@@ -63,7 +104,12 @@ async def get_companies_stream(query: str, jurisdiction: Optional[str] = None, u
     return StreamingResponse(streamer(), media_type="application/x-ndjson")
 
 @app.get("/search", response_model=ApiResponse)
-async def get_companies(query: str, jurisdiction: Optional[str] = None, use_cache: bool = True):
+async def get_companies(
+    query: str,
+    jurisdiction: Optional[str] = None,
+    use_cache: bool = True,
+    api_key: APIKey = Depends(get_api_key)
+):
     session = SessionLocal()
     if use_cache:
         existing_task = session.query(Task).filter(
@@ -80,7 +126,6 @@ async def get_companies(query: str, jurisdiction: Optional[str] = None, use_cach
     result = await collect_results(query, jurisdiction)
     
     if use_cache:
-        # Save the results to database
         task = Task(
             id=str(uuid.uuid4()),
             status="completed",
@@ -115,11 +160,16 @@ async def collect_results(query: str, jurisdiction: Optional[str] = None):
     return results
 
 @app.get("/queue", response_model=ApiResponse)
-async def queue_scraping(query: str, jurisdiction: Optional[str] = None, background_tasks: BackgroundTasks = None, use_cache: bool = True):
+async def queue_scraping(
+    query: str,
+    jurisdiction: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    use_cache: bool = True,
+    api_key: APIKey = Depends(get_api_key)
+):
     session = SessionLocal()
     
     if use_cache:
-        # Check if we already have results for this query
         existing_task = session.query(Task).filter(
             Task.query == query,
             Task.jurisdiction == jurisdiction,
@@ -141,7 +191,7 @@ async def queue_scraping(query: str, jurisdiction: Optional[str] = None, backgro
     return ApiResponse(success=True, message="Task queued successfully", data={"task_id": task_id})
 
 @app.get("/tasks", response_model=ApiResponse)
-async def get_tasks():
+async def get_tasks(api_key: APIKey = Depends(get_api_key)):
     session = SessionLocal()
     tasks = session.query(Task).all()
     session.close()
@@ -152,7 +202,7 @@ async def get_tasks():
     )
 
 @app.get("/task/{task_id}/delete", response_model=ApiResponse)
-async def delete_task(task_id: str):
+async def delete_task(task_id: str, api_key: APIKey = Depends(get_api_key)):
     session = SessionLocal()
     task = session.query(Task).filter(Task.id == task_id).first()
     if task:
@@ -164,7 +214,7 @@ async def delete_task(task_id: str):
     return ApiResponse(success=False, message="Task not found")
 
 @app.get("/delete", response_model=ApiResponse)
-async def delete_all_tasks():
+async def delete_all_tasks(api_key: APIKey = Depends(get_api_key)):
     session = SessionLocal()
     tasks = session.query(Task).all()
     for task in tasks:
@@ -174,7 +224,7 @@ async def delete_all_tasks():
     return ApiResponse(success=True, message="All tasks deleted successfully")
 
 @app.get("/task/{task_id}", response_model=ApiResponse)
-async def get_task(task_id: str):
+async def get_task(task_id: str, api_key: APIKey = Depends(get_api_key)):
     session = SessionLocal()
     task = session.query(Task).filter(Task.id == task_id).first()
     session.close()

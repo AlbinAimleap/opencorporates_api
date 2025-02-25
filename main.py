@@ -1,4 +1,4 @@
-from opencorporates_api.api_async import app
+from opencorporates_api.api import app
 from dotenv import load_dotenv, find_dotenv
 
 load_dotenv(find_dotenv(".env", raise_error_if_not_found=True))
