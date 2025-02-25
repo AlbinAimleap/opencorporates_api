@@ -70,35 +70,35 @@ Start the FastAPI server:
     - Register a new user and get an API key
     - Body: `{"username": "your_username"}`
 
-  All other endpoints require an `X-API-Key` header with a valid API key.
+  All other endpoints require an `X-API-Key` header with a valid API key or apikey query parameter.
 
   ### Search Endpoints
 
-  - `GET /search/stream?query=<search_term>&jurisdiction=<optional_jurisdiction>&use_cache=<boolean>`
+  - `GET /search/stream?query=<search_term>&jurisdiction=<optional_jurisdiction>&use_cache=<boolean>&apikey=<optional_apikey>`
     - Streams company results as they are scraped
     - Optional caching of results
 
-  - `GET /search?query=<search_term>&jurisdiction=<optional_jurisdiction>&use_cache=<boolean>`
+  - `GET /search?query=<search_term>&jurisdiction=<optional_jurisdiction>&use_cache=<boolean>&apikey=<optional_apikey>`
     - Returns all company results in a single response
     - Optional caching of results
 
   ### Task Management
 
-  - `GET /queue?query=<search_term>&jurisdiction=<optional_jurisdiction>&use_cache=<boolean>`
+  - `GET /queue?query=<search_term>&jurisdiction=<optional_jurisdiction>&use_cache=<boolean>&apikey=<optional_apikey>`
     - Queues a new scraping task
     - Returns a task ID
     - Optional caching of results
 
-  - `GET /tasks`
+  - `GET /tasks?apikey=<optional_apikey>`
     - Lists all tasks
 
-  - `GET /task/{task_id}`
+  - `GET /task/{task_id}?apikey=<optional_apikey>`
     - Gets status and results of a specific task
 
-  - `GET /task/{task_id}/delete`
+  - `GET /task/{task_id}/delete?apikey=<optional_apikey>`
     - Deletes a specific task
 
-  - `GET /delete`
+  - `GET /delete?apikey=<optional_apikey>`
     - Deletes all tasks
 
   ## Response Format

@@ -11,7 +11,7 @@ from opencorporates_api.opencorporates import search
 from opencorporates_api.tasks import SessionLocal, Task, Base, User
 
 API_KEY_NAME = "X-API-Key"
-api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 app = FastAPI()
 
@@ -46,13 +46,17 @@ class ApiResponse(BaseModel):
 class UserCreate(BaseModel):
     username: str
 
-async def get_api_key(api_key_header: str = Security(api_key_header)):
+async def get_api_key(api_key_header: str = Security(api_key_header), apikey: Optional[str] = None):
+    api_key = api_key_header or apikey
+    if not api_key:
+        raise HTTPException(status_code=403, detail="API Key is required")
+    
     session = SessionLocal()
-    user = session.query(User).filter(User.api_key == api_key_header).first()
+    user = session.query(User).filter(User.api_key == api_key).first()
     session.close()
     if not user:
         raise HTTPException(status_code=403, detail="Invalid API Key")
-    return api_key_header
+    return api_key
 
 @app.post("/register-obfuscated-pathparameter-internal-use-only", response_model=ApiResponse)
 async def register_user(user: UserCreate):
@@ -78,7 +82,7 @@ async def get_companies_stream(
     query: str,
     jurisdiction: Optional[str] = None,
     use_cache: bool = True,
-    api_key: APIKey = Depends(get_api_key)
+    api_key: str = Depends(get_api_key)
 ):
     session = SessionLocal()
     if use_cache:
@@ -108,7 +112,7 @@ async def get_companies(
     query: str,
     jurisdiction: Optional[str] = None,
     use_cache: bool = True,
-    api_key: APIKey = Depends(get_api_key)
+    api_key: str = Depends(get_api_key)
 ):
     session = SessionLocal()
     if use_cache:
@@ -165,7 +169,7 @@ async def queue_scraping(
     jurisdiction: Optional[str] = None,
     background_tasks: BackgroundTasks = None,
     use_cache: bool = True,
-    api_key: APIKey = Depends(get_api_key)
+    api_key: str = Depends(get_api_key)
 ):
     session = SessionLocal()
     
@@ -191,7 +195,7 @@ async def queue_scraping(
     return ApiResponse(success=True, message="Task queued successfully", data={"task_id": task_id})
 
 @app.get("/tasks", response_model=ApiResponse)
-async def get_tasks(api_key: APIKey = Depends(get_api_key)):
+async def get_tasks(api_key: str = Depends(get_api_key)):
     session = SessionLocal()
     tasks = session.query(Task).all()
     session.close()
@@ -202,7 +206,7 @@ async def get_tasks(api_key: APIKey = Depends(get_api_key)):
     )
 
 @app.get("/task/{task_id}/delete", response_model=ApiResponse)
-async def delete_task(task_id: str, api_key: APIKey = Depends(get_api_key)):
+async def delete_task(task_id: str, api_key: str = Depends(get_api_key)):
     session = SessionLocal()
     task = session.query(Task).filter(Task.id == task_id).first()
     if task:
@@ -214,7 +218,7 @@ async def delete_task(task_id: str, api_key: APIKey = Depends(get_api_key)):
     return ApiResponse(success=False, message="Task not found")
 
 @app.get("/delete", response_model=ApiResponse)
-async def delete_all_tasks(api_key: APIKey = Depends(get_api_key)):
+async def delete_all_tasks(api_key: str = Depends(get_api_key)):
     session = SessionLocal()
     tasks = session.query(Task).all()
     for task in tasks:
@@ -224,7 +228,7 @@ async def delete_all_tasks(api_key: APIKey = Depends(get_api_key)):
     return ApiResponse(success=True, message="All tasks deleted successfully")
 
 @app.get("/task/{task_id}", response_model=ApiResponse)
-async def get_task(task_id: str, api_key: APIKey = Depends(get_api_key)):
+async def get_task(task_id: str, api_key: str = Depends(get_api_key)):
     session = SessionLocal()
     task = session.query(Task).filter(Task.id == task_id).first()
     session.close()
