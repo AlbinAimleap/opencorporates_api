@@ -1,48 +1,66 @@
-from sqlalchemy import create_engine, Column, String, Text, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from redis import Redis
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import json
 
-DATABASE_URL = "sqlite:///tasks.db"
+redis_client = Redis(
+    host=os.getenv('REDIS_HOST', 'redis'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    password=os.getenv('REDIS_PASSWORD', 'YOUR_STRONG_PASSWORD_HERE'),
+    decode_responses=True
+)
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=engine)
+class User:
+    def __init__(self, id, username, api_key, created_at=None):
+        self.id = id
+        self.username = username
+        self.api_key = api_key
+        self.created_at = created_at or datetime.now(timezone.utc).isoformat()
 
-Base = declarative_base()
+    @staticmethod
+    def from_dict(data):
+        return User(**json.loads(data))
 
+    def to_dict(self):
+        return json.dumps({
+            'id': self.id,
+            'username': self.username,
+            'api_key': self.api_key,
+            'created_at': self.created_at
+        })
 
-class User(Base):
-    __tablename__ = "users"
-    id = Column(String, primary_key=True)
-    username = Column(String, unique=True, nullable=False)
-    api_key = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+class Task:
+    def __init__(self, id, status, query, jurisdiction=None, output=None):
+        self.id = id
+        self.status = status
+        self.query = query
+        self.jurisdiction = jurisdiction
+        self.output = output
 
-class Task(Base):
-    __tablename__ = "tasks"
-    id = Column(String, primary_key=True, index=True)
-    status = Column(String, index=True)
-    query = Column(String, index=True)
-    jurisdiction = Column(String, nullable=True)
-    output = Column(Text, nullable=True)
+    @staticmethod
+    def from_dict(data):
+        return Task(**json.loads(data))
 
-# Create the tasks table (if it doesn't already exist)
-Base.metadata.create_all(bind=engine)
+    def to_dict(self):
+        return json.dumps({
+            'id': self.id,
+            'status': self.status,
+            'query': self.query,
+            'jurisdiction': self.jurisdiction,
+            'output': self.output
+        })
 
 def create_default_user():
-    db = SessionLocal()
-    default_user = db.query(User).filter_by(username="admin").first()
-    if not default_user:
+    user_key = "user:admin"
+    if not redis_client.exists(user_key):
         default_user = User(
-            id=os.getenv("DEFAULT_USER_ID", 1),
+            id=os.getenv("DEFAULT_USER_ID"),
             username="admin",
-            api_key=os.getenv("DEFAULT_API_KEY"),
+            api_key=os.getenv("DEFAULT_API_KEY")
         )
-        db.add(default_user)
-        db.commit()
-    db.close()
+        redis_client.set(user_key, default_user.to_dict())
+        redis_client.set(f"user:api_key:{default_user.api_key}", user_key)
 
 create_default_user()

@@ -5,3 +5,4 @@ bs4
 pydantic
 sqlalchemy
 python-dotenv
+redis

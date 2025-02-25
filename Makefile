@@ -3,18 +3,18 @@ BUILD_NAME=latest
 
 .PHONY: build
 build:
-	docker build -t $(IMAGE_NAME):$(BUILD_NAME) .
+	docker compose build
 
 .PHONY: run
 run:
-	docker run -it -p 8000:8000 $(IMAGE_NAME):$(BUILD_NAME)
+	docker compose up -d
 
 .PHONY: build-run
 dbuild: build run
 
 .PHONY: stop
 stop:
-	docker stop $(docker ps -q --filter ancestor=$(IMAGE_NAME):$(BUILD_NAME))
+	docker compose down
 
 .PHONY: clean
 clean:
