@@ -29,7 +29,9 @@ cd open_corporates
 
 2. Create a `.env` file in the root directory:
 
-    - ZYTE_API_KEY="your_zyte_api_key"
+    - ZYTE_API_KEY      ="your_zyte_api_key"
+    - DEFAULT_API_KEY   ="your_default_api_key" - (Generate using `import secrets; str(secrets.token_hex(16))`)
+    - DEFAULT_USER_ID   ="your_default_user_id" - (Ideally `1` as user is generated as soon as the the server starts)
 
 3. Install dependencies:
 ```bash
